@@ -1,9 +1,18 @@
-from flask import Flask, Request, request, jsonify
+import os
 
-from .translate_handler import translate, VALID_LANGUAGES
+from flask import Flask, request, jsonify
+from sqlalchemy import create_engine
+from dotenv import load_dotenv
+
+from .translate_handler import translate_text, VALID_LANGUAGES
 from .helper import validate_translate_req
 
+load_dotenv('.env')
+CONNECTION_STRING = f"mysql+mysqlconnector://{os.environ.get('DB_USER')}:{os.environ.get('DB_PASS')}@{os.environ.get('DB_HOST')}:{os.environ.get('DB_PORT')}/{os.environ.get('DB_NAME')}"
+
 app = Flask(__name__)
+
+sql_engine = create_engine(CONNECTION_STRING)
 
 # ----------------------------------- ROUTES -----------------------------------
 
@@ -18,7 +27,7 @@ def get_translate():
 
     text, source_lang, target_lang = args["data"]
 
-    translation = translate(text, source_lang, target_lang)
+    translation = translate_text(text, source_lang, target_lang)
 
     if translation['status'] == 'error':
         return jsonify(translation), 400
