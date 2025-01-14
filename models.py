@@ -1,5 +1,5 @@
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, ForeignKey, Integer, String
 
 class Base(DeclarativeBase):
     """Base class for the models"""
@@ -19,5 +19,5 @@ class TranslationItem(Base):
     id = Column(Integer, primary_key=True)
     lang = Column(String(20))
     html_text = Column(String(1000))
-    original_id = Column(Integer)
+    original_id = Column(Integer, ForeignKey(OriginalItem.id))
     audio_path = Column(String(200))

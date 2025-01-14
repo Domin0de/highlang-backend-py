@@ -1,18 +1,28 @@
 import os
 
 from flask import Flask, request, jsonify
-from sqlalchemy import create_engine
+from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
+from google.cloud import translate_v3 as translator
 
 from .translate_handler import translate_text, VALID_LANGUAGES
 from .helper import validate_translate_req
 
 load_dotenv('.env')
-CONNECTION_STRING = f"mysql+mysqlconnector://{os.environ.get('DB_USER')}:{os.environ.get('DB_PASS')}@{os.environ.get('DB_HOST')}:{os.environ.get('DB_PORT')}/{os.environ.get('DB_NAME')}"
+CONNECTION_STRING = f"mysql+pymysql://{os.environ.get('DB_USER')}:{os.environ.get('DB_PASS')}@localhost:{os.environ.get('DB_PORT')}/{os.environ.get('DB_NAME')}"
+db = SQLAlchemy()
 
 app = Flask(__name__)
 
-sql_engine = create_engine(CONNECTION_STRING)
+app.config['SQLALCHEMY_DATABASE_URI'] = CONNECTION_STRING
+app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
+
+db.init_app(app)
+
+client = translator.TranslationServiceClient(
+    client_options={"api_key": os.environ.get('GOOGLE_API_KEY')}
+)
 
 # ----------------------------------- ROUTES -----------------------------------
 
