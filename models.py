@@ -20,4 +20,4 @@ class TranslationItem(Base):
     lang = Column(String(20))
     html_text = Column(String(1000))
     original_id = Column(Integer, ForeignKey(OriginalItem.id))
-    audio_path = Column(String(200))
+    audio_id = Column(String(40))

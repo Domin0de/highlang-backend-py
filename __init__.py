@@ -3,7 +3,7 @@ import os
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
-from google.cloud import translate_v3 as translator
+from google.cloud import translate_v3 as translator, texttospeech_v1 as tts
 
 from .translate_handler import translate_text, VALID_LANGUAGES
 from .helper import validate_translate_req
@@ -20,7 +20,11 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 
 db.init_app(app)
 
-client = translator.TranslationServiceClient(
+translation_client = translator.TranslationServiceClient(
+    client_options={"api_key": os.environ.get('GOOGLE_API_KEY')}
+)
+
+tts_client = tts.TextToSpeechClient(
     client_options={"api_key": os.environ.get('GOOGLE_API_KEY')}
 )
 

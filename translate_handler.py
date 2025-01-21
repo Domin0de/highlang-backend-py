@@ -1,9 +1,10 @@
 import os
 import json
+import uuid
 
-from google.cloud import translate_v3 as translator
+from google.cloud import translate_v3 as translator, texttospeech_v1 as tts
 
-from . import db, client
+from . import db, translation_client, tts_client
 from .models import OriginalItem, TranslationItem
 
 try:
@@ -25,6 +26,21 @@ def translate_text(text: str, target_lang: str):
     if not translated:
         translated = translate_text_api(text, target_lang)
 
+    try:
+        with open(f'audio/{translated.audio_id}.mp3', 'rb') as f:
+            audio_bytes = f.read()
+    except (OSError, AttributeError):
+        return {
+            "status": "success",
+            "translation": translated.html_text,
+            "audio": None
+        }
+
+    return {
+        "status": "success",
+        "translation": translated.html_text,
+        "audio": audio_bytes
+    }
 
 def get_translated(text: str, target_lang: str):
     """Checks DB for existing translation"""
@@ -72,10 +88,28 @@ def get_combined(text: str, target_lang: str):
 
     return None
 
-def get_audio(translated_text: str):
+def get_audio(translated_text: str, language: str):
     """Get the audio for the translation"""
+    tts_text = tts.SynthesisInput(text=translated_text)
+    tts_voice = tts.VoiceSelectionParams(language_code=language)
+    tts_audio_conf = tts.AudioConfig(audio_encoding=tts.AudioEncoding.MP3)
 
-    pass
+    tts_req = tts.SynthesizeSpeechRequest(
+        input=tts_text,
+        voice=tts_voice,
+        audio_config=tts_audio_conf
+    )
+
+    tts_res = tts_client.synthesize_speech(request=tts_req)
+
+    tts_id = str(uuid.uuid4())
+
+    audio_path = f"audio/{tts_id}.mp3"
+
+    with open(audio_path, 'wb') as f:
+        f.write(tts_res.audio_content)
+
+    return tts_id
 
 def translate_text_api(text: str, target_lang: str):
     """Translate the text using the Google Translate API"""
@@ -87,7 +121,7 @@ def translate_text_api(text: str, target_lang: str):
         mime_type='text/plain'
     )
 
-    translation_res = client.translate_text(request=translation_req)
+    translation_res = translation_client.translate_text(request=translation_req)
 
     if not translation_res.translations:
         return {"status": "error", "message": "Translation failed"}
@@ -101,7 +135,7 @@ def translate_text_api(text: str, target_lang: str):
         mime_type='text/plain'
     )
 
-    romanised_res = client.romanize_text(request=romanised_req)
+    romanised_res = translation_client.romanize_text(request=romanised_req)
 
     if not romanised_res.translations:
         return {"status": "error", "message": "Romanisation failed"}
@@ -110,7 +144,7 @@ def translate_text_api(text: str, target_lang: str):
 
     html_text = f"<p>{translated_text}</p><p><i>{romanised_text}</i></p>"
 
-    audio_path = get_audio(translated_text)
+    audio_id = get_audio(translated_text)
 
     original = OriginalItem(text=text)
     db.session.add(original)
@@ -119,10 +153,10 @@ def translate_text_api(text: str, target_lang: str):
         lang=target_lang,
         html_text=html_text,
         original_id=original.id,
-        audio_path=''
+        audio_id=audio_id
     )
 
     db.session.add(translation)
     db.session.commit()
 
-    return {"status": "success", "translation": html_text}
+    return translation
